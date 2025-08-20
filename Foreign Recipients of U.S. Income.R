@@ -386,6 +386,14 @@ data_WFP_all <- data_WFP_all %>%
 data_WFP_all$WFP <- ifelse (data_WFP_all$recipient_type == "Withholding foreign partnerships and trusts", 
                             1, 0)
 
+data_WFP_all$recipient_type <- gsub("\\s*\\[\\d+\\]", "", data_WFP_all$recipient_type)
+
+data_WFP_all$recipient_type <- gsub("\\bPension plans\\b", "Pensions", data_WFP_all$recipient_type)
+
+data_WFP_all$recipient_type <- gsub("Hybrid entities making treaty claim", 
+                                    "Hybrid entity making treaty claim",
+                                    data_WFP_all$recipient_type)
+
 #GGPLOTS
 
 ggplot(data_WFP_all, aes(x = year, y = interest, color = `recipient_type`)) +
