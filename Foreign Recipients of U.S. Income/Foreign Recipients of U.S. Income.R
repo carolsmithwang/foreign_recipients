@@ -197,26 +197,42 @@ filtered_data$total_u_s_source_income <- as.numeric(filtered_data$total_u_s_sour
 ggplot(filtered_data, aes(x = year, y = number_of_forms_1042s)) +
   geom_line() +
   facet_wrap(~country) +
-  #scale_y_log10() +
   labs(title = "Forms 1042S over Years by Country")
 
 ggplot(filtered_data, aes(x = year, y = (log(number_of_forms_1042s)))) +
   geom_line() +
   facet_wrap(~country) +
-  #scale_y_log10() +
   labs(title = "Log Forms 1042S over Years by Country")
 
 ggplot(filtered_data, aes(x = year, y = interest_income)) +
   geom_line() +
   facet_wrap(~country) +
-  #scale_y_log10() +
   labs(title = "Interest Income Paid to Corps over Years by Country")
 
 ggplot(filtered_data, aes(x = year, y = log(interest_income))) +
   geom_line() +
   facet_wrap(~country) +
-  #scale_y_log10() +
   labs(title = "Log Interest Income Paid to Corps over Years by Country")
+
+ggplot(filtered_data, aes(x = year, y = total_u_s_source_income)) + 
+  geom_line() + 
+  facet_wrap(~country) + 
+  labs(title = "Total U.S. Source Income Paid to Corps by Country")
+
+ggplot(filtered_data, aes(x = year, y = log(total_u_s_source_income))) + 
+  geom_line() + 
+  facet_wrap(~country) + 
+  labs(title = "Log Total U.S. Source Income Paid to Corps by Country")
+
+ggplot(filtered_data, aes(x = year, y = u_s_tax_withheld)) + 
+  geom_line() + 
+  facet_wrap(~country) + 
+  labs(title = "Total U.S. tax withheld by Country")
+
+ggplot(filtered_data, aes(x = year, y = log(u_s_tax_withheld))) + 
+  geom_line() + 
+  facet_wrap(~country) + 
+  labs(title = "Log Total U.S. tax withheld by Country")
 
 filtered_data$tax_haven <- ifelse(filtered_data$country %in% c("Bermuda", "British Virgin Islands", "Cayman Islands", "Hong Kong"), 1, 0)
 
@@ -436,7 +452,7 @@ ggplot(aes(x = year, y = log(interest), color = `recipient_type`)) +
 
 data_WFP_all %>%   
   ggplot(aes(x = year, y = log(interest), color = `recipient_type`, shape = recipient_type)) +
-  geom_line() + facet_wrap(~recipient_type)
+  geom_line() + facet_wrap(~recipient_type) +
   geom_point(size = 3) +
   labs(
     title = "Log Interest by Type of Foreign Entity",
@@ -585,3 +601,59 @@ summary(forms_reg_WFP)
 
 forms_reg_ForCorp <- lm (number_of_forms_1042s ~ af_change + year + total_u_s_source_income + recipient_type + af_change * ForCorp, data = data_WFP_all)
 summary(forms_reg_ForCorp)
+
+data_WFP_all$int_share_of_total_income <- data_WFP_all$interest / data_WFP_all$total_u_s_source_income
+
+library(dplyr)
+
+data_WFP_all <- data_WFP_all %>%
+  group_by(year) %>%
+  mutate(share_of_total_interest = interest / sum(interest, na.rm = TRUE)) %>%
+  ungroup()
+
+data_WFP_all <- data_WFP_all %>%
+  group_by(year) %>%
+  mutate(share_of_total_income = total_u_s_source_income / sum(total_u_s_source_income, na.rm = TRUE)) %>%
+  ungroup()
+
+ForCorp_int_total <- lm( int_share_of_total_income ~ af_change + year + total_u_s_source_income + recipient_type + af_change * ForCorp, data = data_WFP_all)
+summary(ForCorp_int_total)
+
+ForCorp_share_of_int <- lm( share_of_total_interest ~ af_change + year + share_of_total_income + recipient_type + af_change * ForCorp, data = data_WFP_all)
+summary(ForCorp_share_of_int)
+
+data_WFP_all <- data_WFP_all %>%
+  mutate(non_int_income = (total_u_s_source_income - interest))
+
+data_WFP_all <- data_WFP_all %>%
+  group_by(year) %>%
+  mutate(share_of_nonint_inc = non_int_income / sum(non_int_income, na.rm = TRUE)) %>%
+  ungroup()
+
+ForCorp_share_of_int <- lm( share_of_total_interest ~ af_change + year + share_of_nonint_inc + recipient_type + af_change * ForCorp, data = data_WFP_all)
+summary(ForCorp_share_of_int)
+
+
+data_WFP_all %>%   filter(`recipient_type` %in% c("Individuals", "Corporations", "Partnerships and trusts", "Tax-exempt organizations[1]", "Withholding foreign partnerships and trusts")) %>%
+  ggplot(aes(x = year, y = share_of_total_interest, color = `recipient_type`)) +
+  geom_smooth() +
+  geom_point(size = 3) +
+  labs(
+    title = "Share of total interest by type of foreign entity",
+    x = "Year",
+    y = "Share of total interest",
+    color = "Type of Entity"
+  ) 
+
+data_WFP_all %>%   
+#  filter(`recipient_type` %in% c("Individuals", "Corporations", "Partnerships and trusts", "Tax-exempt organizations[1]", "Withholding foreign partnerships and trusts")) %>%
+  ggplot(aes(x = year, y = share_of_total_interest, color = recipient_type)) +
+  geom_smooth() +
+  geom_point(size = 3) +
+  scale_y_log10()
+  labs(
+    title = "Log share of total interest by type of foreign entity",
+    x = "Year",
+    y = "Log share of total interest",
+    color = "Type of Entity"
+  ) 
