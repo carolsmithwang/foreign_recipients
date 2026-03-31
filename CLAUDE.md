@@ -113,7 +113,8 @@ The presentation (`Direct lending funds before and after TCJA 10-10-25.pptx`) la
 │   └── (RStudio project files)
 ├── archive/                                # Older script versions
 │   ├── 1042s_analysis.R                    #   Earlier copy (missing ForCorp, share regressions)
-│   └── 1042s_analysis.RData               #   Saved R workspace from archived script
+│   ├── 1042s_analysis.RData               #   Saved R workspace from archived script
+│   └── foreign_recipients_analysis_pre_refactor.R  #   Pre-refactor copy of main script
 ├── plots/                                  # Exported visualizations
 │   ├── ETR for Certain Types of Entities.jpeg
 │   ├── Forms 1042S by country over time.pdf
@@ -123,7 +124,7 @@ The presentation (`Direct lending funds before and after TCJA 10-10-25.pptx`) la
 
 ### Key files
 
-- **`analysis/foreign_recipients_analysis.R`** — The most complete version of the analysis script. Contains all data loading, cleaning, visualization, and regression code, including the ForCorp (foreign corporation) regressions, share-based regressions, and additional country-level plots not present in the root-level copy.
+- **`analysis/foreign_recipients_analysis.R`** — The primary analysis script. Uses a `year_config` configuration table and helper functions (`clean_corporate_data()`, `clean_wfp_data()`) to avoid per-year copy-paste. Contains all data loading, cleaning, visualization, and regression code, including the ForCorp (foreign corporation) regressions, share-based regressions, and country-level plots.
 - **`analysis/canonicalize_entity_names.R`** — Standalone module defining the `entity_name_mapping` (a named character vector mapping raw IRS entity names to canonical forms) and the `canonicalize_entity_names()` function. Sourced by both R analysis scripts. This is the single source of truth for entity name normalization — edit this file to add or change mappings.
 - **`Direct lending funds before and after TCJA 10-10-25.pptx`** — A 31-slide presentation summarizing the research. Covers pre- and post-TCJA fund structures, hypotheses, diff-in-diff methodology, regression results (Hypotheses A and B for interest income, Forms 1042-S results, and WFP analysis), and supporting plots. Includes embedded screenshots of regression output and ggplot visualizations.
 - **`data/`** — Contains the raw Excel files downloaded from the IRS. Files prefixed `it02tc` are Table 2 (withholding by country and recipient type). Files prefixed `pa02` appear to be SOI partnership data.
@@ -132,20 +133,15 @@ The presentation (`Direct lending funds before and after TCJA 10-10-25.pptx`) la
 
 ### 1. Data Ingestion
 
-The `read_irs_withholding()` function downloads Excel files from the IRS website (caching them locally to avoid re-downloading) and reads them with `readxl::read_excel()`. Each year's data requires slightly different row-skipping and column selection because the IRS changed formatting between years (e.g., column names differ between 2015–2016 and 2017+, and the "return on capital" column only appears in 2021–2022).
+The `read_irs_withholding()` function downloads Excel files from the IRS website (caching them locally in `../data/`) and reads them with `readxl::read_excel()`. A `year_config` tribble stores per-year parameters (URL, row-skip counts, and whether the year includes a "return on capital" column), replacing what was previously separate copy-pasted code blocks for each year. Each year's data requires slightly different row-skipping and column selection because the IRS changed formatting between years (e.g., column names differ between 2015–2016 and 2017+, and the "return on capital" column only appears in 2021–2022).
 
 ### 2. Data Cleaning — Corporate Analysis
 
-For the country-level corporate analysis, the script:
-- Removes header/summary rows specific to each year
-- Renames columns to consistent names
-- Extracts a `country` column from the repeating row structure (every 4th row is a country header; the rows in between are recipient types)
-- Filters to keep only "Corporations" as the recipient type
-- Selects key columns: recipient type, number of forms, interest income, total U.S.-source income, U.S. tax withheld, country, and year
+The `clean_corporate_data()` function handles the country-level corporate analysis for each year. It removes header/summary rows (using the per-year `corp_skip` parameter), renames columns to consistent names, extracts a `country` column from the repeating row structure (every 4th row is a country header; the rows in between are recipient types), selects the appropriate columns (adjusting for the "return on capital" column in 2021–2022), and filters to keep only "Corporations" as the recipient type.
 
 ### 3. Data Cleaning — Entity Type Analysis (WFP)
 
-A second data pipeline extracts the **aggregate entity-type rows** (not broken out by country) to compare across recipient types: individuals, corporations, partnerships and trusts, withholding foreign partnerships (WFP), tax-exempt organizations, etc. This enables analysis of whether WFPs behaved differently after TCJA.
+The `clean_wfp_data()` function extracts the **aggregate entity-type rows** (not broken out by country) to compare across recipient types: individuals, corporations, partnerships and trusts, withholding foreign partnerships (WFP), tax-exempt organizations, etc. The per-year `wfp_end` parameter controls where the entity-type section ends and the country-level data begins. This enables analysis of whether WFPs behaved differently after TCJA.
 
 ### Entity Name Canonicalization
 
@@ -258,5 +254,5 @@ All regressions control for year, total U.S.-source income (or share equivalents
 
 - The earlier R script (`archive/1042s_analysis.R`) is missing the ForCorp indicator, share-based variables, and several regressions. The primary version is `analysis/foreign_recipients_analysis.R`.
 - The `pa02` files in `data/` (SOI partnership data) are not currently used in the analysis scripts but could support additional research on partnership structures.
-- Year-to-year formatting differences in the IRS spreadsheets require manual adjustment of row-skip counts and column indices. Adding a new year of data will likely require inspecting the new file's layout.
+- Year-to-year formatting differences in the IRS spreadsheets require manual adjustment of row-skip counts and column indices. Adding a new year of data requires adding a row to the `year_config` tribble with the correct `corp_skip`, `wfp_end`, and `has_return_on_capital` values (inspect the new file's layout to determine these).
 - The `afchange` variable in the country-level analysis is `NA` for 2021–2022, effectively excluding those years from the diff-in-diff regressions. The entity-type analysis (`af_change`) includes all post-2017 years.
