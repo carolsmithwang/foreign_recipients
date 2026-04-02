@@ -448,3 +448,11 @@ data_WFP_all %>%
   scale_y_log10() +
   labs(title = "Log share of total interest by type of foreign entity",
        x = "Year", y = "Log share of total interest", color = "Type of Entity")
+
+# =============================================================================
+# 9. EXPORT CLEANED DATA
+# =============================================================================
+
+write_csv(filtered_data, "filtered_data.csv")
+write_csv(data_WFP_all, "data_WFP_all.csv")
+write_csv(data_WFP_subset, "data_WFP_subset.csv")
