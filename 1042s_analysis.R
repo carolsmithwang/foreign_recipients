@@ -386,11 +386,13 @@ data_WFP_all <- data_WFP_all %>%
 data_WFP_all$WFP <- ifelse (data_WFP_all$recipient_type == "Withholding foreign partnerships and trusts", 
                             1, 0)
 
-# --- Canonicalize recipient_type across years ---
-# Mapping and logic defined in canonicalize_entity_names.R
-# See CLAUDE.md "Entity Name Canonicalization" for full documentation.
-source("../analysis/canonicalize_entity_names.R")
-data_WFP_all <- canonicalize_entity_names(data_WFP_all, col = "recipient_type")
+data_WFP_all$recipient_type <- gsub("\\s*\\[\\d+\\]", "", data_WFP_all$recipient_type)
+
+data_WFP_all$recipient_type <- gsub("\\bPension plans\\b", "Pensions", data_WFP_all$recipient_type)
+
+data_WFP_all$recipient_type <- gsub("Hybrid entities making treaty claim", 
+                                    "Hybrid entity making treaty claim",
+                                    data_WFP_all$recipient_type)
 
 #GGPLOTS
 
@@ -403,8 +405,6 @@ ggplot(data_WFP_all, aes(x = year, y = interest, color = `recipient_type`)) +
     y = "Interest",
     color = "Type of Entity"
   )
-
-#REGRESSIONS
 
 data_WFP_all %>%   filter(`recipient_type` %in% c("Individuals", "Corporations", "Partnerships and trusts", "Tax-exempt organizations[1]", "Withholding foreign partnerships and trusts")) %>%
 ggplot(aes(x = year, y = log(interest), color = `recipient_type`)) +
